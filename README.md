@@ -3,7 +3,7 @@
   <a href="#-sobre-o-projeto">Sobre</a> •
   <a href="#-funcionalidades">Funcionalidades</a> •
   <a href="#-hardware-e-componentes">Hardware</a> •
-  <a href="#-nossa-equipe">Equipe</a> •
+  <a href="#-nossa-equipe">Equipe</a>
 </p>
 
 ## 🚀 Sobre o Projeto
@@ -79,7 +79,3 @@ Sensor HC-SR04 → ESP32/ESP8266 → Broker MQTT (Raspberry Pi) → Dashboard We
 **🅿️ Revolucionando a gestão de estacionamentos, uma vaga de cada vez**
 
 </div>
-
----
-
-*Última atualização: ${new Date().toLocaleDateString('pt-BR')}*
