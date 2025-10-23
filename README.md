@@ -1,5 +1,7 @@
 # 🅿️ Smart Parking
+
 <p align="center">
+  <img width="1913" height="674" alt="Banner SmartParking" src="https://github.com/P-E-N-T-E-S/smart-parking/blob/main/img/bannersp.png" />
   <a href="#-sobre-o-projeto">Sobre</a> •
   <a href="#-funcionalidades">Funcionalidades</a> •
   <a href="#-hardware-e-componentes">Hardware</a> •
@@ -13,6 +15,7 @@ O **Smart Parking** é um sistema inteligente de monitoramento de vagas de estac
 ## ⭐ Funcionalidades
 
 ### 🔍 **Detecção em Tempo Real**
+
 - Monitoramento contínuo do status das vagas (LIVRE/OCUPADO)
 - Leitura precisa com sensores ultrassônicos HC-SR04
 - Atualização instantânea via protocolo MQTT
@@ -22,11 +25,13 @@ O **Smart Parking** é um sistema inteligente de monitoramento de vagas de estac
 - Valores brutos de distância para debugging
 
 ### 🔧 **Arquitetura Escalável**
+
 - Suporte a múltiplas vagas com tópicos MQTT individuais
 - Sistema baseado em FreeRTOS para multitarefas
 - Broker MQTT centralizado no Raspberry Pi
 
 ### 📱 **Monitoramento Remoto**
+
 - Acesso web ao dashboard de qualquer dispositivo
 - Log de histórico de ocupação
 - Sistema de alertas e notificações
@@ -36,31 +41,32 @@ O **Smart Parking** é um sistema inteligente de monitoramento de vagas de estac
 ## 🏗️ Arquitetura do Sistema
 
 ### **Fluxo de Dados**
+
 ```
 Sensor HC-SR04 → ESP32/ESP8266 → Broker MQTT (Raspberry Pi) → Dashboard Web
 ```
 
 ### **Tópicos MQTT**
 
-| Tópico | Direção | Função |
-|--------|---------|---------|
-| `vaga/A/status` | ESP32 → Broker | Status da Vaga A ("LIVRE"/"OCUPADO") |
-| `vaga/A/distancia` | ESP32 → Broker | Valor bruto da distância em cm |
-| `vaga/B/status` | ESP8266 → Broker | Status da Vaga B |
-| `vaga/total/livres` | RPi → Broker | Total de vagas livres |
-| `vaga/geral/comando` | Broker → ESPs | Comandos de controle |
+| Tópico               | Direção          | Função                               |
+| -------------------- | ---------------- | ------------------------------------ |
+| `vaga/A/status`      | ESP32 → Broker   | Status da Vaga A ("LIVRE"/"OCUPADO") |
+| `vaga/A/distancia`   | ESP32 → Broker   | Valor bruto da distância em cm       |
+| `vaga/B/status`      | ESP8266 → Broker | Status da Vaga B                     |
+| `vaga/total/livres`  | RPi → Broker     | Total de vagas livres                |
+| `vaga/geral/comando` | Broker → ESPs    | Comandos de controle                 |
 
 ---
 
 ## 🔌 Hardware e Componentes
 
-| Componente | Quantidade | Função |
-|------------|------------|---------|
-| **ESP32** | 1x (Vaga A) | Leitura sensor, Wi-Fi, Cliente MQTT |
-| **ESP8266** | 1x (Vaga B) | Módulo secundário para múltiplas vagas |
-| **Sensor HC-SR04** | 2x | Medição de distância por ultrassom |
-| **Raspberry Pi** | 1x | Broker MQTT e Dashboard Web |
-| **Protótipo Físico** | 1x | Maquete com vagas para demonstração |
+| Componente           | Quantidade  | Função                                 |
+| -------------------- | ----------- | -------------------------------------- |
+| **ESP32**            | 1x (Vaga A) | Leitura sensor, Wi-Fi, Cliente MQTT    |
+| **ESP8266**          | 1x (Vaga B) | Módulo secundário para múltiplas vagas |
+| **Sensor HC-SR04**   | 2x          | Medição de distância por ultrassom     |
+| **Raspberry Pi**     | 1x          | Broker MQTT e Dashboard Web            |
+| **Protótipo Físico** | 1x          | Maquete com vagas para demonstração    |
 
 ---
 
@@ -68,9 +74,9 @@ Sensor HC-SR04 → ESP32/ESP8266 → Broker MQTT (Raspberry Pi) → Dashboard We
 
 <div align="center">
 
-| [<img src="https://avatars.githubusercontent.com/Thomazrlima" width="100" style="border-radius:50%"><br>Thomaz Lima](https://github.com/Thomazrlima) | [<img src="https://avatars.githubusercontent.com/evaldocunhaf" width="100" style="border-radius:50%"><br>Evaldo Filho](https://github.com/evaldocunhaf) | [<img src="https://avatars.githubusercontent.com/hsspedro " width="100" style="border-radius:50%"><br>Pedro Silva](https://github.com/hsspedro ) | [<img src="https://avatars.githubusercontent.com/Sofia-Saraiva" width="100" style="border-radius:50%"><br>Sofia Saraiva](https://github.com/Sofia-Saraiva) |
-|:---:|:---:|:---:|:---:|
-| Desenvolvedor IoT | Especialista em Hardware | Backend Developer | Frontend Developer |
+| [<img src="https://avatars.githubusercontent.com/Thomazrlima" width="100" style="border-radius:50%"><br>Thomaz Lima](https://github.com/Thomazrlima) | [<img src="https://avatars.githubusercontent.com/evaldocunhaf" width="100" style="border-radius:50%"><br>Evaldo Filho](https://github.com/evaldocunhaf) | [<img src="https://avatars.githubusercontent.com/hsspedro " width="100" style="border-radius:50%"><br>Pedro Silva](https://github.com/hsspedro) | [<img src="https://avatars.githubusercontent.com/Sofia-Saraiva" width="100" style="border-radius:50%"><br>Sofia Saraiva](https://github.com/Sofia-Saraiva) |
+| :--------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|                                                                  Desenvolvedor IoT                                                                   |                                                                Especialista em Hardware                                                                 |                                                                Backend Developer                                                                |                                                                     Frontend Developer                                                                     |
 
 </div>
 
