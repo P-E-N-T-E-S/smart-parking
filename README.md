@@ -76,12 +76,7 @@ Sensor HC-SR04 → ESP32/ESP8266 → Broker MQTT (Raspberry Pi) → Dashboard We
 
 | [<img src="https://avatars.githubusercontent.com/Thomazrlima" width="100" style="border-radius:50%"><br>Thomaz Lima](https://github.com/Thomazrlima) | [<img src="https://avatars.githubusercontent.com/evaldocunhaf" width="100" style="border-radius:50%"><br>Evaldo Filho](https://github.com/evaldocunhaf) | [<img src="https://avatars.githubusercontent.com/hsspedro " width="100" style="border-radius:50%"><br>Pedro Silva](https://github.com/hsspedro) | [<img src="https://avatars.githubusercontent.com/Sofia-Saraiva" width="100" style="border-radius:50%"><br>Sofia Saraiva](https://github.com/Sofia-Saraiva) |
 | :--------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------: |
-|                                                                  Desenvolvedor IoT                                                                   |                                                                Especialista em Hardware                                                                 |                                                                Backend Developer                                                                |                                                                     Frontend Developer                                                                     |
+|                                                                  Frontend Developer                                                                   |                                                                Especialista em Hardware                                                                 |                                                                Desenvolvedor IoT                                                                |                                                                     Backend Developer                                                                     |
 
 </div>
 
-<div align="center">
-
-**🅿️ Revolucionando a gestão de estacionamentos, uma vaga de cada vez**
-
-</div>
