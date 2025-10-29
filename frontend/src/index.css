@@ -1,0 +1,68 @@
+:root{
+  --bg: #f7f9fb;
+  --card-radius: 8px;
+}
+
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:#222}
+.app-root{max-width:1220px;margin:24px auto;padding:16px}
+.app-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.app-header h1{margin:0;font-size:1.4rem}
+
+/* Garage layout */
+.garage{
+  background: linear-gradient(180deg,#f1f3f5 0%, #ffffff 100%);
+  border-radius:12px;
+  padding:18px;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.06);
+}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;align-items:start}
+
+/* spot: visual representation of a parking slot */
+.spot{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px;border-radius:10px;transition:transform .18s ease, box-shadow .18s ease}
+.spot:hover{transform:translateY(-6px);box-shadow:0 8px 22px rgba(16,24,40,0.08)}
+
+.spot-rect{width:140px;height:80px;border-radius:8px;border:2px dashed rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#fff,#f9fafb);box-shadow: inset 0 -8px 24px rgba(0,0,0,0.02)}
+.spot-car{font-size:34px}
+
+.spot-meta{width:100%;text-align:center}
+.spot-name{font-weight:700;margin-bottom:4px}
+.spot-info{display:flex;justify-content:center;gap:10px;font-size:0.95rem;color:#444}
+.spot-status{font-weight:700;text-transform:capitalize}
+.spot-dist{color:#666}
+.spot-time{font-size:0.75rem;color:#666;margin-top:6px}
+
+/* status colors */
+.spot-free .spot-rect{background:linear-gradient(180deg,#eefae6,#f7fff4);border-color:rgba(40,167,69,0.18)}
+.spot-free .spot-status{color:#198754}
+.spot-free{border-left:6px solid rgba(40,167,69,0.12)}
+
+.spot-occupied .spot-rect{background:linear-gradient(180deg,#fff0f0,#fff6f6);border-color:rgba(220,53,69,0.14)}
+.spot-occupied .spot-status{color:#dc3545}
+.spot-occupied{border-left:6px solid rgba(220,53,69,0.12)}
+
+.spot-unknown .spot-rect{background:linear-gradient(180deg,#f3f4f6,#ffffff);border-color:rgba(108,117,125,0.08)}
+.spot-unknown .spot-status{color:#6c757d}
+
+.placeholder{padding:20px;color:#666}
+
+.log{margin-top:18px;background:white;padding:12px;border-radius:8px;border:1px solid #e6e6e6}
+.log h3{margin-top:0}
+.log ul{max-height:180px;overflow:auto;padding-left:16px}
+
+.contador{display:flex;flex-direction:column;align-items:flex-end}
+.contador-numeric{font-size:1.25rem;font-weight:700}
+.contador .livres{color:#28a745}
+.contador .total{color:#6c757d}
+.app-footer{margin-top:18px;text-align:right;color:#666;font-size:0.85rem}
+
+/* responsivo */
+@media (max-width:900px){
+  .grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+}
+
+@media (max-width:600px){
+  .app-header{flex-direction:column;align-items:flex-start;gap:8px}
+  .spot-rect{width:120px;height:64px}
+}

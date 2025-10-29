@@ -1,0 +1,56 @@
+# Node
+node_modules/
+frontend/node_modules/
+/frontend/dist/
+
+# Lockfiles (keep package-lock in project directories, but ignore accidental root one)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Vite / build
+dist/
+.build/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+raspberry-pi/backend/.venv/
+
+# Environments
+.env
+.env.*
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Editor temp
+*.swp
+*.swo
+
+# Python caches
+.pytest_cache/
+
+# Others
+.idea/
+*.iml
+
+# Optional: ignore local builds & IDE settings
+.idea/
+*.sublime-workspace
+
+# Keep README, src etc.
