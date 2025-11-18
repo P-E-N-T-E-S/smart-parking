@@ -1,0 +1,36 @@
+{
+  "backend": {
+    "url": "http://localhost:5000",
+    "endpoints": {
+      "spots": "/api/spots",
+      "vagas": "/api/vagas", 
+      "status": "/api/status",
+      "toggle": "/api/spots/{id}/toggle",
+      "simulator": {
+        "start": "/api/simulator/start",
+        "stop": "/api/simulator/stop"
+      }
+    }
+  },
+  "mqtt": {
+    "broker": "172.26.67.41",
+    "port": 1883,
+    "topics": {
+      "vaga1": "/vaga1/status"
+    }
+  },
+  "esp32": {
+    "vaga_controlled": 1,
+    "distance_threshold": 20
+  },
+  "instructions": {
+    "react_setup": [
+      "1. Configure o frontend React para usar backend em localhost:5000",
+      "2. Use os endpoints /api/spots ou /api/vagas para buscar dados",
+      "3. O formato de resposta inclui: id, nome, status, lastUpdate, distancia",
+      "4. Para alternar status de vaga use POST /api/spots/{id}/toggle",
+      "5. A vaga 1 (A1) é controlada pelo ESP32 via MQTT",
+      "6. As demais vagas podem ser controladas manualmente"
+    ]
+  }
+}

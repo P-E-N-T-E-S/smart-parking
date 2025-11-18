@@ -1,4 +1,5 @@
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 import sqlite3
 import json
 import random
@@ -6,24 +7,44 @@ import threading
 import time
 from datetime import datetime
 
+# Importações condicionais para MQTT
+try:
+    import paho.mqtt.client as mqtt
+    MQTT_AVAILABLE = True
+except ImportError:
+    print("⚠️ paho-mqtt não disponível. Instale com: pip install paho-mqtt")
+    MQTT_AVAILABLE = False
+
 # ===============================
 # CONFIGURAÇÃO
 # ===============================
 app = Flask(__name__)
+CORS(app)  # Habilita CORS para o frontend React
+
 DB_FILE = 'parking.db'
 TOTAL_SPOTS = 2
+
+# Configurações MQTT (baseadas no ESP32)
+MQTT_BROKER = '172.26.67.41'  # IP do broker MQTT (mesmo do ESP32)
+MQTT_PORT = 1883
+MQTT_TOPIC_VAGA1 = '/vaga1/status'  # Tópico que o ESP32 publica
+
+# Variável global para cliente MQTT
+mqtt_client = None
 
 # ===============================
 # BANCO DE DADOS SUPER SIMPLES
 # ===============================
 def init_db():
-    """Cria tabela básica"""
+    """Cria tabela básica com campos extras para o frontend React"""
     conn = sqlite3.connect(DB_FILE)
     conn.execute('''
         CREATE TABLE IF NOT EXISTS spots (
             spot INTEGER PRIMARY KEY,
             occupied INTEGER DEFAULT 0,
-            updated TEXT DEFAULT CURRENT_TIMESTAMP
+            updated TEXT DEFAULT CURRENT_TIMESTAMP,
+            distancia INTEGER DEFAULT NULL,
+            last_distance_update TEXT DEFAULT NULL
         )
     ''')
     
@@ -35,10 +56,18 @@ def init_db():
     conn.close()
 
 def get_spots():
-    """Retorna todas as vagas"""
+    """Retorna todas as vagas com dados completos"""
     conn = sqlite3.connect(DB_FILE)
-    cursor = conn.execute('SELECT spot, occupied, updated FROM spots ORDER BY spot')
-    spots = [{'spot': row[0], 'occupied': bool(row[1]), 'updated': row[2]} for row in cursor]
+    cursor = conn.execute('SELECT spot, occupied, updated, distancia, last_distance_update FROM spots ORDER BY spot')
+    spots = []
+    for row in cursor:
+        spots.append({
+            'spot': row[0], 
+            'occupied': bool(row[1]), 
+            'updated': row[2],
+            'distancia': row[3],
+            'distance_updated': row[4]
+        })
     conn.close()
     return spots
 
@@ -60,6 +89,104 @@ def toggle_spot(spot_num):
     
     conn.close()
     return None
+
+def update_spot_from_esp32(spot_num, occupied, timestamp=None):
+    """Atualiza status da vaga com dados vindos do ESP32"""
+    if timestamp is None:
+        timestamp = datetime.now().isoformat()
+    
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.execute('SELECT occupied FROM spots WHERE spot = ?', (spot_num,))
+    current = cursor.fetchone()
+    
+    if current and current[0] != occupied:
+        # Só atualiza se houve mudança real
+        conn.execute(
+            'UPDATE spots SET occupied = ?, updated = ? WHERE spot = ?',
+            (occupied, timestamp, spot_num)
+        )
+        conn.commit()
+        print(f"📡 ESP32: Vaga {spot_num} -> {'OCUPADA' if occupied else 'LIVRE'}")
+    
+    conn.close()
+
+def update_spot_status(spot, distance):
+    """Atualiza status da vaga baseado na distância"""
+    occupied = 1 if distance < 20 else 0
+    conn = sqlite3.connect(DB_FILE)
+    
+    # Atualiza status da vaga E a distância medida
+    conn.execute('''
+        UPDATE spots 
+        SET occupied = ?, updated = CURRENT_TIMESTAMP, distancia = ?, last_distance_update = CURRENT_TIMESTAMP
+        WHERE spot = ?
+    ''', (occupied, distance, spot))
+    
+    conn.commit()
+    conn.close()
+    print(f"📏 Sensor: Vaga {spot}, Distância {distance}cm -> {'OCUPADA' if occupied else 'LIVRE'}")
+    return occupied
+
+# ===============================
+# MQTT CLIENT PARA ESP32
+# ===============================
+def on_mqtt_connect(client, userdata, flags, rc):
+    """Callback quando conecta ao broker MQTT"""
+    if rc == 0:
+        print("✅ Conectado ao broker MQTT")
+        client.subscribe(MQTT_TOPIC_VAGA1)
+        print(f"📡 Inscrito no tópico: {MQTT_TOPIC_VAGA1}")
+    else:
+        print(f"❌ Falha na conexão MQTT. Código: {rc}")
+
+def on_mqtt_message(client, userdata, msg):
+    """Processa mensagens vindas do ESP32"""
+    try:
+        topic = msg.topic
+        payload = json.loads(msg.payload.decode())
+        
+        print(f"📨 MQTT recebido: {topic}")
+        print(f"📦 Payload: {payload}")
+        
+        # Processa dados do ESP32
+        # O ESP32 envia: {"situacao": X, "distancia_atual": Y, "diferenca": Z, "timestamp": "..."}
+        diferenca = payload.get('diferenca', 0)
+        timestamp = payload.get('timestamp', datetime.now().isoformat())
+        
+        # Lógica: diferença POSITIVA grande = vaga foi LIBERADA
+        # Lógica: diferença NEGATIVA grande = vaga foi OCUPADA
+        if diferenca > 2000:  # Threshold do ESP32
+            # Vaga foi LIBERADA (objeto se afastou)
+            update_spot_from_esp32(1, False, timestamp)
+        elif diferenca < -2000:
+            # Vaga foi OCUPADA (objeto se aproximou)
+            update_spot_from_esp32(1, True, timestamp)
+            
+    except json.JSONDecodeError:
+        print(f"❌ Erro ao decodificar JSON: {msg.payload.decode()}")
+    except Exception as e:
+        print(f"❌ Erro ao processar mensagem MQTT: {e}")
+
+def setup_mqtt():
+    """Configura cliente MQTT para receber dados do ESP32"""
+    global mqtt_client
+    
+    if not MQTT_AVAILABLE:
+        print("⚠️ MQTT não disponível - modo apenas simulador")
+        return
+    
+    try:
+        mqtt_client = mqtt.Client()
+        mqtt_client.on_connect = on_mqtt_connect
+        mqtt_client.on_message = on_mqtt_message
+        
+        print(f"🔗 Conectando ao broker MQTT: {MQTT_BROKER}:{MQTT_PORT}")
+        mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        mqtt_client.loop_start()
+        
+    except Exception as e:
+        print(f"❌ Erro ao configurar MQTT: {e}")
+        mqtt_client = None
 
 # ===============================
 # SIMULADOR DE SENSORES SIMPLES
@@ -83,12 +210,13 @@ class SimpleSimulator:
         print("🛑 Simulador parado")
     
     def _simulate(self):
-        """Simula mudanças aleatórias nas vagas"""
+        """Simula mudanças aleatórias nas vagas (exceto vaga 1 que é do ESP32)"""
         while self.running:
-            time.sleep(random.randint(3, 8))  # Espera 3-8 segundos
+            time.sleep(random.randint(5, 10))  # Espera 5-10 segundos
             
-            if random.random() < 0.7:  # 70% chance de mudança
-                spot_num = random.randint(1, TOTAL_SPOTS)
+            if random.random() < 0.5:  # 50% chance de mudança
+                # Apenas simula vaga 2 (vaga 1 é controlada pelo ESP32)
+                spot_num = 2
                 new_status = toggle_spot(spot_num)
                 if new_status is not None:
                     status_text = "🚗 OCUPADA" if new_status else "🅿️ LIVRE"
@@ -103,24 +231,58 @@ simulator = SimpleSimulator()
 
 @app.route('/')
 def home():
-    """Página principal com interface visual"""
-    spots = get_spots()
-    total_spots = len(spots)
-    occupied_spots = sum(1 for spot in spots if spot['occupied'])
-    free_spots = total_spots - occupied_spots
-    occupancy_rate = round((occupied_spots / total_spots) * 100, 1) if total_spots > 0 else 0
-    
-    return render_template_string(HTML_TEMPLATE, 
-                                spots=spots,
-                                total_spots=total_spots,
-                                occupied_spots=occupied_spots,
-                                free_spots=free_spots,
-                                occupancy_rate=occupancy_rate)
+    """API Info - Retorna informações sobre a API"""
+    return jsonify({
+        'message': 'Smart Parking System API - Backend para ESP32',
+        'version': '1.0.0',
+        'endpoints': {
+            'GET /api/spots': 'Lista todas as vagas',
+            'POST /api/spots/<int>/toggle': 'Alterna status de uma vaga',
+            'GET /api/status': 'Estatísticas gerais',
+            'POST /api/simulator/start': 'Inicia simulador',
+            'POST /api/simulator/stop': 'Para simulador'
+        },
+        'mqtt': {
+            'broker': f"{MQTT_BROKER}:{MQTT_PORT}",
+            'topic': MQTT_TOPIC_VAGA1,
+            'available': MQTT_AVAILABLE and mqtt_client is not None
+        },
+        'total_spots': TOTAL_SPOTS
+    })
 
 @app.route('/api/spots')
 def api_spots():
-    """API: Lista todas as vagas"""
-    return jsonify(get_spots())
+    """API: Lista todas as vagas formatadas para o frontend React"""
+    spots = get_spots()
+    formatted_spots = []
+    
+    for spot in spots:
+        formatted_spots.append({
+            'id': spot['spot'],
+            'nome': f"A{spot['spot']}",  # Formato esperado pelo frontend
+            'status': 'occupied' if spot['occupied'] else 'free',
+            'lastUpdate': spot['updated'],
+            'distancia': None,  # Será preenchido via MQTT se disponível
+            'esp32_controlled': spot['spot'] == 1  # Indica se é controlada pelo ESP32
+        })
+    
+    return jsonify(formatted_spots)
+
+@app.route('/api/vagas')
+def api_vagas():
+    """API: Compatibilidade com frontend React - formato de vagas"""
+    spots = get_spots()
+    vagas = {}
+    
+    for spot in spots:
+        vaga_name = f"A{spot['spot']}"
+        vagas[vaga_name] = {
+            'status': 'occupied' if spot['occupied'] else 'free',
+            'lastUpdate': spot['updated'],
+            'distancia': None  # Será atualizado via MQTT
+        }
+    
+    return jsonify(vagas)
 
 @app.route('/api/spots/<int:spot_num>/toggle', methods=['POST'])
 def api_toggle_spot(spot_num):
@@ -166,7 +328,7 @@ def api_stop_simulator():
 # INICIALIZAÇÃO
 # ===============================
 if __name__ == '__main__':
-    print("🚀 SMART PARKING - VERSÃO ULTRA SIMPLIFICADA")
+    print("🚀 SMART PARKING - INTEGRAÇÃO ESP32")
     print("=" * 50)
     
     # Inicializa banco de dados
@@ -174,11 +336,15 @@ if __name__ == '__main__':
     print(f"✅ Banco de dados: {DB_FILE}")
     print(f"🅿️ Vagas configuradas: {TOTAL_SPOTS}")
     
-    # Inicia simulador automaticamente
+    # Configura MQTT para ESP32
+    setup_mqtt()
+    
+    # Inicia simulador automaticamente (apenas para vaga 2)
     simulator.start()
     
     print("🌐 Interface web: http://localhost:5000")
     print("📡 API endpoints: /api/spots, /api/status")
+    print("🔌 Aguardando dados do ESP32...")
     print("💡 Pressione Ctrl+C para parar")
     print("=" * 50)
     

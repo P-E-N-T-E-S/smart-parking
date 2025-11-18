@@ -9,6 +9,9 @@ import './index.css'
 // URL do broker WebSocket. Pode ser configurada via Vite env: VITE_MQTT_BROKER
 const BROKER = import.meta.env.VITE_MQTT_BROKER || 'ws://localhost:9001'
 
+// Configuração do backend Flask
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+
 // Função util para normalizar o status recebido
 function normalizeStatus(raw) {
   if (!raw && raw !== 0) return 'unknown'
@@ -26,21 +29,101 @@ export default function App() {
   const [vagas, setVagas] = useState({})
   const [log, setLog] = useState([])
   const [connected, setConnected] = useState(false)
+  const [apiConnected, setApiConnected] = useState(false)
   const clientRef = useRef(null)
   // histórico: mapa vaga -> array de { t, y } onde y=1 ocupado,0 livre
   const historyRef = useRef({})
   // série temporal do total de vagas livres
   const [totalSeries, setTotalSeries] = useState([])
 
+  // Função para buscar dados do backend Flask
+  const fetchVagasFromAPI = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/spots`)
+      if (response.ok) {
+        const spots = await response.json()
+        setApiConnected(true)
+        
+        // Converte formato do backend para formato do frontend
+        const vagasData = {}
+        spots.forEach(spot => {
+          vagasData[spot.nome] = {
+            status: spot.status,
+            lastUpdate: Date.now(),
+            distancia: spot.distancia,
+            esp32_controlled: spot.esp32_controlled
+          }
+        })
+        
+        setVagas(vagasData)
+        addLog(`Dados carregados do backend: ${spots.length} vagas`)
+        
+        return spots
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados do backend:', error)
+      setApiConnected(false)
+      addLog(`Erro na API: ${error.message}`)
+      return null
+    }
+  }
+
+  // Função para alternar vaga via API do backend
+  const toggleVagaAPI = async (vagaName) => {
+    try {
+      const vagaId = parseInt(vagaName.replace('A', '')) // A1 -> 1, A2 -> 2
+      const response = await fetch(`${API_BASE}/api/spots/${vagaId}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        addLog(`API Toggle - ${vagaName}: ${result.message}`)
+        
+        // Atualiza estado local
+        setVagas(prev => ({
+          ...prev,
+          [vagaName]: {
+            ...prev[vagaName],
+            status: result.occupied ? 'occupied' : 'free',
+            lastUpdate: Date.now()
+          }
+        }))
+        
+        return true
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Erro ao alternar vaga:', error)
+      addLog(`Erro ao alternar ${vagaName}: ${error.message}`)
+      return false
+    }
+  }
+
   useEffect(() => {
-    // conectar ao broker via WebSocket
+    // Primeira busca dos dados do backend
+    fetchVagasFromAPI()
+    
+    // Atualiza dados do backend a cada 30 segundos
+    const apiInterval = setInterval(fetchVagasFromAPI, 30000)
+    
+    return () => clearInterval(apiInterval)
+  }, [])
+
+  useEffect(() => {
+    // conectar ao broker via WebSocket para ESP32
     const client = mqtt.connect(BROKER, { connectTimeout: 4000 })
     clientRef.current = client
 
     client.on('connect', () => {
       setConnected(true)
-      addLog(`Conectado ao broker ${BROKER}`)
-      // inscreve nos tópicos para status e distância (todos os nomes de vaga)
+      addLog(`Conectado ao broker MQTT ${BROKER}`)
+      // inscreve no tópico do ESP32 (compatível com backend)
+      client.subscribe('/vaga1/status')
       client.subscribe('vaga/+/status')
       client.subscribe('vaga/+/distancia')
     })
@@ -64,52 +147,89 @@ export default function App() {
   }
 
   function handleMessage(topic, payload) {
-    // topic esperado: vaga/<nome>/status ou vaga/<nome>/distancia
-    const parts = topic.split('/')
-    if (parts.length < 3) return
-    const [, nome, tipo] = parts
-
-    setVagas((prev) => {
-      const next = { ...prev }
-      const current = { ...(next[nome] || { status: 'unknown', distancia: null }) }
-
-      if (tipo === 'status') {
-        const norm = normalizeStatus(payload)
-        if (current.status !== norm) {
-          addLog(`Vaga ${nome} mudou: ${current.status} -> ${norm}`)
-        }
-        current.status = norm
-        current.lastUpdate = Date.now()
-      } else if (tipo === 'distancia') {
-        current.distancia = payload
-        current.lastUpdate = Date.now()
-      }
-
-      next[nome] = current
-      // atualizar histórico: marcar 1 para ocupado, 0 para livre
-      try {
-        const t = Date.now()
-        const hv = historyRef.current
-        if (!hv[nome]) hv[nome] = []
-        const y = next[nome].status === 'occupied' ? 1 : next[nome].status === 'free' ? 0 : null
-        if (y !== null) {
-          hv[nome].push({ t, y })
-          if (hv[nome].length > 500) hv[nome].shift()
-        }
-
-        const nomesNow = Object.keys(next)
-        const livresNow = nomesNow.filter((n) => next[n].status === 'free').length
-        setTotalSeries((s) => {
-          const ns = [...s, { t, y: livresNow }]
-          if (ns.length > 1000) ns.shift()
-          return ns
+    // Processa mensagens do ESP32 e outros tópicos MQTT
+    try {
+      // Tópico ESP32: /vaga1/status
+      if (topic === '/vaga1/status') {
+        const data = JSON.parse(payload)
+        const nome = 'A1'  // Vaga 1 é sempre A1
+        
+        setVagas((prev) => {
+          const next = { ...prev }
+          const current = { ...(next[nome] || { status: 'unknown', distancia: null }) }
+          
+          // ESP32 envia diferenca: positiva = liberou, negativa = ocupou
+          const diferenca = data.diferenca || 0
+          const newStatus = diferenca < -2000 ? 'occupied' : diferenca > 2000 ? 'free' : current.status
+          
+          if (current.status !== newStatus) {
+            addLog(`ESP32 - Vaga ${nome}: ${current.status} -> ${newStatus} (dif: ${diferenca})`)
+          }
+          
+          current.status = newStatus
+          current.distancia = data.distancia_atual
+          current.lastUpdate = Date.now()
+          next[nome] = current
+          
+          updateHistory(nome, next)
+          return next
         })
-      } catch (e) {
-        console.error(e)
+        return
+      }
+      
+      // Tópicos padrão: vaga/<nome>/status ou vaga/<nome>/distancia
+      const parts = topic.split('/')
+      if (parts.length < 3) return
+      const [, nome, tipo] = parts
+
+      setVagas((prev) => {
+        const next = { ...prev }
+        const current = { ...(next[nome] || { status: 'unknown', distancia: null }) }
+
+        if (tipo === 'status') {
+          const norm = normalizeStatus(payload)
+          if (current.status !== norm) {
+            addLog(`MQTT - Vaga ${nome}: ${current.status} -> ${norm}`)
+          }
+          current.status = norm
+          current.lastUpdate = Date.now()
+        } else if (tipo === 'distancia') {
+          current.distancia = payload
+          current.lastUpdate = Date.now()
+        }
+
+        next[nome] = current
+        updateHistory(nome, next)
+        return next
+      })
+    } catch (error) {
+      console.error('Erro ao processar mensagem MQTT:', error)
+      addLog(`Erro MQTT: ${error.message}`)
+    }
+  }
+
+  function updateHistory(nome, vagasState) {
+    // Atualiza histórico e série temporal
+    try {
+      const t = Date.now()
+      const hv = historyRef.current
+      if (!hv[nome]) hv[nome] = []
+      const y = vagasState[nome].status === 'occupied' ? 1 : vagasState[nome].status === 'free' ? 0 : null
+      if (y !== null) {
+        hv[nome].push({ t, y })
+        if (hv[nome].length > 500) hv[nome].shift()
       }
 
-      return next
-    })
+      const nomesNow = Object.keys(vagasState)
+      const livresNow = nomesNow.filter((n) => vagasState[n].status === 'free').length
+      setTotalSeries((s) => {
+        const ns = [...s, { t, y: livresNow }]
+        if (ns.length > 1000) ns.shift()
+        return ns
+      })
+    } catch (e) {
+      console.error('Erro ao atualizar histórico:', e)
+    }
   }
 
   const nomes = Object.keys(vagas).sort()
@@ -123,7 +243,10 @@ export default function App() {
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <ContadorVagas livres={livres} total={total} />
           <div style={{fontSize:12,color: connected ? '#198754' : '#dc3545' }}>
-            {connected ? 'Broker: conectado' : 'Broker: desconectado'}
+            MQTT: {connected ? 'conectado' : 'desconectado'}
+          </div>
+          <div style={{fontSize:12,color: apiConnected ? '#198754' : '#dc3545' }}>
+            API: {apiConnected ? 'conectada' : 'desconectada'}
           </div>
         </div>
       </header>
@@ -131,10 +254,14 @@ export default function App() {
       <main>
         <section className="garage">
           <div className="grid">
-            {nomes.length === 0 && <p className="placeholder">Aguardando mensagens MQTT (tópicos: vaga/&lt;nome&gt;/status, vaga/&lt;nome&gt;/distancia)</p>}
+            {nomes.length === 0 && <p className="placeholder">Carregando dados do backend API...</p>}
             {nomes.map((nome) => (
               <div key={nome} style={{display:'flex',flexDirection:'column',alignItems:'stretch',gap:6}}>
-                <VagaCard nome={nome} data={vagas[nome]} />
+                <VagaCard 
+                  nome={nome} 
+                  data={vagas[nome]} 
+                  onToggle={() => toggleVagaAPI(nome)}
+                />
                 <div style={{marginTop:4}}>
                   <OccupancyChart data={(historyRef.current[nome] || []).slice(-120)} label={`Vaga ${nome}`} />
                 </div>
@@ -160,7 +287,7 @@ export default function App() {
       </main>
 
       <footer className="app-footer">
-        <small>Broker: {BROKER}</small>
+        <small>Backend API: {API_BASE} | MQTT Broker: {BROKER}</small>
       </footer>
     </div>
   )

@@ -45,6 +45,24 @@ body{margin:0;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;backg
 .spot-unknown .spot-rect{background:linear-gradient(180deg,#f3f4f6,#ffffff);border-color:rgba(108,117,125,0.08)}
 .spot-unknown .spot-status{color:#6c757d}
 
+/* ESP32 badge */
+.spot-badge{position:absolute;top:-8px;right:-8px;background:#007bff;color:white;font-size:0.6rem;padding:2px 6px;border-radius:4px;font-weight:600}
+.spot-rect{position:relative}
+
+/* Toggle button */
+.spot-toggle{
+  background:#007bff;
+  color:white;
+  border:none;
+  padding:4px 8px;
+  border-radius:4px;
+  font-size:0.7rem;
+  cursor:pointer;
+  margin-top:4px;
+  transition:background 0.2s;
+}
+.spot-toggle:hover{background:#0056b3}
+
 .placeholder{padding:20px;color:#666}
 
 .log{margin-top:18px;background:white;padding:12px;border-radius:8px;border:1px solid #e6e6e6}
