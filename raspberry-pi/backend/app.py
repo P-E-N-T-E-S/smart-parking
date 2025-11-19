@@ -38,15 +38,36 @@ mqtt_client = None
 def init_db():
     """Cria tabela básica com campos extras para o frontend React"""
     conn = sqlite3.connect(DB_FILE)
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS spots (
-            spot INTEGER PRIMARY KEY,
-            occupied INTEGER DEFAULT 0,
-            updated TEXT DEFAULT CURRENT_TIMESTAMP,
-            distancia INTEGER DEFAULT NULL,
-            last_distance_update TEXT DEFAULT NULL
-        )
-    ''')
+    
+    # Verifica se a tabela já existe
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='spots'")
+    table_exists = cursor.fetchone() is not None
+    
+    if table_exists:
+        # Verifica se as novas colunas existem
+        cursor = conn.execute("PRAGMA table_info(spots)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        # Adiciona colunas se não existirem
+        if 'distancia' not in columns:
+            conn.execute('ALTER TABLE spots ADD COLUMN distancia INTEGER DEFAULT NULL')
+            print("➕ Adicionada coluna 'distancia' ao banco")
+            
+        if 'last_distance_update' not in columns:
+            conn.execute('ALTER TABLE spots ADD COLUMN last_distance_update TEXT DEFAULT NULL')
+            print("➕ Adicionada coluna 'last_distance_update' ao banco")
+    else:
+        # Cria tabela nova com todas as colunas
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS spots (
+                spot INTEGER PRIMARY KEY,
+                occupied INTEGER DEFAULT 0,
+                updated TEXT DEFAULT CURRENT_TIMESTAMP,
+                distancia INTEGER DEFAULT NULL,
+                last_distance_update TEXT DEFAULT NULL
+            )
+        ''')
+        print("📄 Criada nova tabela 'spots'")
     
     # Insere vagas se não existirem
     for i in range(1, TOTAL_SPOTS + 1):
@@ -58,16 +79,37 @@ def init_db():
 def get_spots():
     """Retorna todas as vagas com dados completos"""
     conn = sqlite3.connect(DB_FILE)
-    cursor = conn.execute('SELECT spot, occupied, updated, distancia, last_distance_update FROM spots ORDER BY spot')
-    spots = []
-    for row in cursor:
-        spots.append({
-            'spot': row[0], 
-            'occupied': bool(row[1]), 
-            'updated': row[2],
-            'distancia': row[3],
-            'distance_updated': row[4]
-        })
+    
+    # Verifica quais colunas existem na tabela
+    cursor = conn.execute("PRAGMA table_info(spots)")
+    columns = [row[1] for row in cursor.fetchall()]
+    
+    # Constrói query baseada nas colunas disponíveis
+    if 'distancia' in columns and 'last_distance_update' in columns:
+        # Tabela completa
+        cursor = conn.execute('SELECT spot, occupied, updated, distancia, last_distance_update FROM spots ORDER BY spot')
+        spots = []
+        for row in cursor:
+            spots.append({
+                'spot': row[0], 
+                'occupied': bool(row[1]), 
+                'updated': row[2],
+                'distancia': row[3],
+                'distance_updated': row[4]
+            })
+    else:
+        # Tabela antiga - só colunas básicas
+        cursor = conn.execute('SELECT spot, occupied, updated FROM spots ORDER BY spot')
+        spots = []
+        for row in cursor:
+            spots.append({
+                'spot': row[0], 
+                'occupied': bool(row[1]), 
+                'updated': row[2],
+                'distancia': None,
+                'distance_updated': None
+            })
+    
     conn.close()
     return spots
 
@@ -115,12 +157,24 @@ def update_spot_status(spot, distance):
     occupied = 1 if distance < 20 else 0
     conn = sqlite3.connect(DB_FILE)
     
-    # Atualiza status da vaga E a distância medida
-    conn.execute('''
-        UPDATE spots 
-        SET occupied = ?, updated = CURRENT_TIMESTAMP, distancia = ?, last_distance_update = CURRENT_TIMESTAMP
-        WHERE spot = ?
-    ''', (occupied, distance, spot))
+    # Verifica se as colunas de distância existem
+    cursor = conn.execute("PRAGMA table_info(spots)")
+    columns = [row[1] for row in cursor.fetchall()]
+    
+    if 'distancia' in columns and 'last_distance_update' in columns:
+        # Atualiza com dados de distância
+        conn.execute('''
+            UPDATE spots 
+            SET occupied = ?, updated = CURRENT_TIMESTAMP, distancia = ?, last_distance_update = CURRENT_TIMESTAMP
+            WHERE spot = ?
+        ''', (occupied, distance, spot))
+    else:
+        # Atualização básica sem distância
+        conn.execute('''
+            UPDATE spots 
+            SET occupied = ?, updated = CURRENT_TIMESTAMP
+            WHERE spot = ?
+        ''', (occupied, spot))
     
     conn.commit()
     conn.close()
