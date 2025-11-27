@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import mqtt from 'mqtt/dist/mqtt' // usar versão browser
 import VagaCard from './components/VagaCard'
 import ContadorVagas from './components/ContadorVagas'
-import OccupancyChart from './components/OccupancyChart'
+import StatusTimer from './components/StatusTimer'
 import TotalFreeChart from './components/TotalFreeChart'
 import './index.css'
 
@@ -61,6 +61,7 @@ export default function App() {
           vagasData[spot.nome] = {
             status: spot.status,
             lastUpdate: Date.now(),
+            statusChangeTime: Date.now(), // Quando o status mudou pela última vez
             distancia: spot.distancia,
             esp32_controlled: spot.esp32_controlled
           }
@@ -102,7 +103,8 @@ export default function App() {
           [vagaName]: {
             ...prev[vagaName],
             status: result.occupied ? 'occupied' : 'free',
-            lastUpdate: Date.now()
+            lastUpdate: Date.now(),
+            statusChangeTime: Date.now() // Status mudou agora
           }
         }))
         
@@ -173,7 +175,7 @@ export default function App() {
         
         setVagas((prev) => {
           const next = { ...prev }
-          const current = { ...(next[nome] || { status: 'unknown', distancia: null }) }
+          const current = { ...(next[nome] || { status: 'unknown', distancia: null, statusChangeTime: Date.now() }) }
           
           // Processa campo 'situacao' do ESP32
           let newStatus = current.status
@@ -194,6 +196,7 @@ export default function App() {
           
           if (current.status !== newStatus) {
             addLog(`ESP32 - Vaga ${nome}: ${current.status} -> ${newStatus} (situacao: ${situacao})`)
+            current.statusChangeTime = Date.now() // Status mudou
           }
           
           current.status = newStatus
@@ -214,12 +217,13 @@ export default function App() {
 
       setVagas((prev) => {
         const next = { ...prev }
-        const current = { ...(next[nome] || { status: 'unknown', distancia: null }) }
+        const current = { ...(next[nome] || { status: 'unknown', distancia: null, statusChangeTime: Date.now() }) }
 
         if (tipo === 'status') {
           const norm = normalizeStatus(payload)
           if (current.status !== norm) {
             addLog(`MQTT - Vaga ${nome}: ${current.status} -> ${norm}`)
+            current.statusChangeTime = Date.now() // Status mudou
           }
           current.status = norm
           current.lastUpdate = Date.now()
@@ -294,7 +298,10 @@ export default function App() {
                   onToggle={() => toggleVagaAPI(nome)}
                 />
                 <div style={{marginTop:4}}>
-                  <OccupancyChart data={(historyRef.current[nome] || []).slice(-120)} label={`Vaga ${nome}`} />
+                  <StatusTimer 
+                    lastUpdate={vagas[nome]?.statusChangeTime} 
+                    status={vagas[nome]?.status} 
+                  />
                 </div>
               </div>
             ))}
