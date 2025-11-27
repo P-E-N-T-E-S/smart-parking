@@ -13,7 +13,7 @@ PubSubClient mqtt(wifiClient);
 // Configurações WiFi
 const char* ssid = "uaifai-tiradentes";           // Coloque o nome da sua rede WiFi
 const char* password = "bemvindoaocesar";      // Coloque a senha da sua rede WiFi
-const char* MQTT_BROKER = "172.26.67.41";   // IP do seu Mac na rede local
+const char* MQTT_BROKER = "broker.hivemq.com";   // IP do seu Mac na rede local
 const uint16_t MQTT_PORT = 1883;         // Porta do broker MQTT
 const char* TOPIC_EST = "/vaga1/status"; 
 
@@ -22,8 +22,8 @@ const char* TOPIC_EST = "/vaga1/status";
 #define PERNA_VERMELHA 27 // Pino para LED vermelho
 #define PERNA_VERDE 26  // Pino para LED verde
 #define PERNA_AZUL 25   // Pino para LED azul
-#define THRESHOLD_CHANGE 2000     // Limiar para considerar mudança drástica
-#define THRESHOLD_OCUPADO 3500    // Valor abaixo disso = vaga ocupada (objeto próximo)
+#define THRESHOLD_CHANGE 200     // Limiar para considerar mudança drástica
+#define THRESHOLD_OCUPADO 3860    // Valor abaixo disso = vaga ocupada (objeto próximo)
 
 // Variável compartilhada para armazenar a distância
 volatile int distancia = 0;
@@ -140,6 +140,7 @@ void taskLerSensor(void *pvParameters) {
 
 // Task 2: Monitora mudanças drásticas na distância
 void taskMonitorarMudanca(void *pvParameters) {
+  String situacao;
   String payload;
   (void) pvParameters;
   
@@ -167,15 +168,17 @@ void taskMonitorarMudanca(void *pvParameters) {
 
       if(diferenca > THRESHOLD_CHANGE ){
         Serial.println("[MQTT] Detectada mudança: Vaga foi ocupada!");
+        situacao = "ocupada";
       } else {
         Serial.println("[MQTT] Detectada mudança: Vaga foi liberada!");
+        situacao = "liberada";
       }
 
       // Obtém o timestamp atual
       String timestamp = getTimestamp();
       
       // Monta payload para enviar ao backend
-      payload = "{ \"situacao\": " + String(distanciaPrevia) + 
+      payload = "{ \"situacao\": \"" + situacao + 
                 ", \"distancia_atual\": " + String(distanciaAtual) +
                 ", \"diferenca\": " + String(diferenca) +
                 ", \"timestamp\": \"" + timestamp + "\" }";
