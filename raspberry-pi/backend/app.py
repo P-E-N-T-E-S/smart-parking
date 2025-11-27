@@ -25,7 +25,7 @@ DB_FILE = 'parking.db'
 TOTAL_SPOTS = 2
 
 # Configurações MQTT (baseadas no ESP32)
-MQTT_BROKER = '172.26.67.41'  # IP do broker MQTT (mesmo do ESP32)
+MQTT_BROKER = 'broker.hivemq.com'  # IP do broker MQTT (mesmo do ESP32)
 MQTT_PORT = 1883
 MQTT_TOPIC_VAGA1 = '/vaga1/status'  # Tópico que o ESP32 publica
 
@@ -154,7 +154,10 @@ def update_spot_from_esp32(spot_num, occupied, timestamp=None):
 
 def update_spot_status(spot, distance):
     """Atualiza status da vaga baseado na distância"""
-    occupied = 1 if distance < 20 else 0
+    # Threshold ajustado para os valores reais do ESP32
+    THRESHOLD_OCUPADO = 1500  # cm
+    occupied = 1 if distance < THRESHOLD_OCUPADO else 0
+    
     conn = sqlite3.connect(DB_FILE)
     
     # Verifica se as colunas de distância existem
@@ -178,7 +181,7 @@ def update_spot_status(spot, distance):
     
     conn.commit()
     conn.close()
-    print(f"📏 Sensor: Vaga {spot}, Distância {distance}cm -> {'OCUPADA' if occupied else 'LIVRE'}")
+    print(f"📏 Sensor: Vaga {spot}, Distância {distance}cm (threshold {THRESHOLD_OCUPADO}) -> {'OCUPADA' if occupied else 'LIVRE'}")
     return occupied
 
 # ===============================
@@ -203,18 +206,42 @@ def on_mqtt_message(client, userdata, msg):
         print(f"📦 Payload: {payload}")
         
         # Processa dados do ESP32
-        # O ESP32 envia: {"situacao": X, "distancia_atual": Y, "diferenca": Z, "timestamp": "..."}
-        diferenca = payload.get('diferenca', 0)
+        # O ESP32 envia: {"situacao": "livre"/"ocupado", "distancia_atual": Y, "diferenca": Z, "timestamp": "..."}
+        distancia_atual = payload.get('distancia_atual', 0)
+        situacao = payload.get('situacao', '')
         timestamp = payload.get('timestamp', datetime.now().isoformat())
         
-        # Lógica: diferença POSITIVA grande = vaga foi LIBERADA
-        # Lógica: diferença NEGATIVA grande = vaga foi OCUPADA
-        if diferenca > 2000:  # Threshold do ESP32
-            # Vaga foi LIBERADA (objeto se afastou)
-            update_spot_from_esp32(1, False, timestamp)
-        elif diferenca < -2000:
-            # Vaga foi OCUPADA (objeto se aproximou)
-            update_spot_from_esp32(1, True, timestamp)
+        # Prioriza o campo 'situacao' se vier como string
+        if isinstance(situacao, str):
+            situacao_lower = situacao.lower().strip()
+            if situacao_lower in ['ocupada', 'ocupado', 'occupied']:
+                ocupado = True
+                status_msg = "OCUPADA"
+            elif situacao_lower in ['liberada', 'liberado', 'livre', 'free']:
+                ocupado = False
+                status_msg = "LIVRE"
+            else:
+                # Fallback para lógica de distância se situacao não for reconhecida
+                THRESHOLD_OCUPADO = 1500  # cm
+                ocupado = distancia_atual < THRESHOLD_OCUPADO
+                status_msg = "OCUPADA" if ocupado else "LIVRE"
+                print(f"⚠️ Situacao '{situacao}' não reconhecida, usando distância")
+        else:
+            # Lógica baseada na distância (fallback)
+            THRESHOLD_OCUPADO = 1500  # cm
+            ocupado = distancia_atual < THRESHOLD_OCUPADO
+            status_msg = "OCUPADA" if ocupado else "LIVRE"
+        
+        print(f"🎯 ESP32 Analysis: situacao='{situacao}', distância={distancia_atual}cm -> {status_msg}")
+        
+        # Atualiza vaga 1 com o novo status
+        update_spot_from_esp32(1, ocupado, timestamp)
+        
+        # Também atualiza com dados de distância se a função existir
+        try:
+            update_spot_status(1, distancia_atual)
+        except Exception as e:
+            print(f"⚠️ Erro ao atualizar distância: {e}")
             
     except json.JSONDecodeError:
         print(f"❌ Erro ao decodificar JSON: {msg.payload.decode()}")
@@ -316,7 +343,7 @@ def api_spots():
             'nome': f"A{spot['spot']}",  # Formato esperado pelo frontend
             'status': 'occupied' if spot['occupied'] else 'free',
             'lastUpdate': spot['updated'],
-            'distancia': None,  # Será preenchido via MQTT se disponível
+            'distancia': spot['distancia'],  # Agora inclui distância real
             'esp32_controlled': spot['spot'] == 1  # Indica se é controlada pelo ESP32
         })
     

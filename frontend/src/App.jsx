@@ -7,7 +7,7 @@ import TotalFreeChart from './components/TotalFreeChart'
 import './index.css'
 
 // URL do broker WebSocket. Pode ser configurada via Vite env: VITE_MQTT_BROKER
-const BROKER = import.meta.env.VITE_MQTT_BROKER || 'ws://localhost:9001'
+const BROKER = import.meta.env.VITE_MQTT_BROKER || 'wss://broker.hivemq.com:8884/mqtt'
 
 // Configuração do backend Flask
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
@@ -16,11 +16,11 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 function normalizeStatus(raw) {
   if (!raw && raw !== 0) return 'unknown'
   const s = String(raw).toLowerCase().trim()
-  if (s === '0' || s === 'livre' || s === 'free' || s === 'desocupada') return 'free'
+  if (s === '0' || s === 'livre' || s === 'free' || s === 'liberada' || s === 'liberado') return 'free'
   if (s === '1' || s === 'ocupada' || s === 'ocupado' || s === 'occupied') return 'occupied'
-  // heurística: se tiver "ocup" -> ocupado, se tiver "livre" -> livre
+  // heurística: se tiver "ocup" -> ocupado, se tiver "libre" -> livre
   if (s.includes('ocup')) return 'occupied'
-  if (s.includes('livre') || s.includes('free')) return 'free'
+  if (s.includes('libre') || s.includes('livre') || s.includes('free')) return 'free'
   return s
 }
 
@@ -30,19 +30,30 @@ export default function App() {
   const [log, setLog] = useState([])
   const [connected, setConnected] = useState(false)
   const [apiConnected, setApiConnected] = useState(false)
+  const [loading, setLoading] = useState(true)
   const clientRef = useRef(null)
   // histórico: mapa vaga -> array de { t, y } onde y=1 ocupado,0 livre
   const historyRef = useRef({})
   // série temporal do total de vagas livres
   const [totalSeries, setTotalSeries] = useState([])
 
+  // Debug logs
+  console.log('API_BASE:', API_BASE)
+  console.log('BROKER:', BROKER)
+  console.log('Current vagas:', vagas)
+
   // Função para buscar dados do backend Flask
   const fetchVagasFromAPI = async () => {
     try {
+      console.log('Fazendo fetch para:', `${API_BASE}/api/spots`)
       const response = await fetch(`${API_BASE}/api/spots`)
+      console.log('Response status:', response.status)
+      
       if (response.ok) {
         const spots = await response.json()
+        console.log('Spots recebidos:', spots)
         setApiConnected(true)
+        setLoading(false)
         
         // Converte formato do backend para formato do frontend
         const vagasData = {}
@@ -55,6 +66,7 @@ export default function App() {
           }
         })
         
+        console.log('Vagas processadas:', vagasData)
         setVagas(vagasData)
         addLog(`Dados carregados do backend: ${spots.length} vagas`)
         
@@ -65,6 +77,7 @@ export default function App() {
     } catch (error) {
       console.error('Erro ao buscar dados do backend:', error)
       setApiConnected(false)
+      setLoading(false)
       addLog(`Erro na API: ${error.message}`)
       return null
     }
@@ -106,10 +119,14 @@ export default function App() {
 
   useEffect(() => {
     // Primeira busca dos dados do backend
+    console.log('Iniciando busca de dados do backend...')
     fetchVagasFromAPI()
     
     // Atualiza dados do backend a cada 30 segundos
-    const apiInterval = setInterval(fetchVagasFromAPI, 30000)
+    const apiInterval = setInterval(() => {
+      console.log('Atualizando dados do backend...')
+      fetchVagasFromAPI()
+    }, 30000)
     
     return () => clearInterval(apiInterval)
   }, [])
@@ -158,12 +175,25 @@ export default function App() {
           const next = { ...prev }
           const current = { ...(next[nome] || { status: 'unknown', distancia: null }) }
           
-          // ESP32 envia diferenca: positiva = liberou, negativa = ocupou
-          const diferenca = data.diferenca || 0
-          const newStatus = diferenca < -2000 ? 'occupied' : diferenca > 2000 ? 'free' : current.status
+          // Processa campo 'situacao' do ESP32
+          let newStatus = current.status
+          const situacao = data.situacao || ''
+          
+          if (typeof situacao === 'string') {
+            const situacaoLower = situacao.toLowerCase().trim()
+            if (situacaoLower === 'ocupada') {
+              newStatus = 'occupied'
+            } else if (situacaoLower === 'liberada') {
+              newStatus = 'free'
+            }
+          } else {
+            // Fallback para lógica de diferença (compatibilidade)
+            const diferenca = data.diferenca || 0
+            newStatus = diferenca < -2000 ? 'occupied' : diferenca > 2000 ? 'free' : current.status
+          }
           
           if (current.status !== newStatus) {
-            addLog(`ESP32 - Vaga ${nome}: ${current.status} -> ${newStatus} (dif: ${diferenca})`)
+            addLog(`ESP32 - Vaga ${nome}: ${current.status} -> ${newStatus} (situacao: ${situacao})`)
           }
           
           current.status = newStatus
@@ -254,7 +284,8 @@ export default function App() {
       <main>
         <section className="garage">
           <div className="grid">
-            {nomes.length === 0 && <p className="placeholder">Carregando dados do backend API...</p>}
+            {loading && <p className="placeholder">🔄 Carregando dados do backend API...</p>}
+            {!loading && nomes.length === 0 && <p className="placeholder">❌ Nenhuma vaga encontrada. Verifique se o backend está rodando em {API_BASE}</p>}
             {nomes.map((nome) => (
               <div key={nome} style={{display:'flex',flexDirection:'column',alignItems:'stretch',gap:6}}>
                 <VagaCard 
