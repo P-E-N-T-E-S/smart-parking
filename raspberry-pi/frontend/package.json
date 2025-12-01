@@ -8,12 +8,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "mqtt": "^4.3.7",
+    "apexcharts": "^5.3.6",
     "chart.js": "^4.4.0",
-    "react-chartjs-2": "^5.2.0",
-  "chartjs-adapter-date-fns": "^2.0.0",
+    "chartjs-adapter-date-fns": "^2.0.0",
     "date-fns": "^2.30.0",
+    "lucide-react": "^0.555.0",
+    "mqtt": "^4.3.7",
     "react": "^18.2.0",
+    "react-apexcharts": "^1.9.0",
+    "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {

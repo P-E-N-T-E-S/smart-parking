@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react'
 import mqtt from 'mqtt/dist/mqtt' // usar versão browser
+import { Car, TrendingUp, ClipboardList, Activity, Clock, Percent } from 'lucide-react'
 import VagaCard from './components/VagaCard'
-import ContadorVagas from './components/ContadorVagas'
-import StatusTimer from './components/StatusTimer'
+import DashboardStats from './components/DashboardStats'
+import SystemStatus from './components/SystemStatus'
+import FreeSpotGauge from './components/FreeSpotGauge'
+import KPICard from './components/KPICard'
+import OccupancyHeatmap from './components/OccupancyHeatmap'
 import TotalFreeChart from './components/TotalFreeChart'
-import './index.css'
+import './styles/modern.css'
 
 // URL do broker WebSocket. Pode ser configurada via Vite env: VITE_MQTT_BROKER
 const BROKER = import.meta.env.VITE_MQTT_BROKER || 'wss://broker.hivemq.com:8884/mqtt'
@@ -37,21 +41,15 @@ export default function App() {
   // série temporal do total de vagas livres
   const [totalSeries, setTotalSeries] = useState([])
 
-  // Debug logs
-  console.log('API_BASE:', API_BASE)
-  console.log('BROKER:', BROKER)
-  console.log('Current vagas:', vagas)
+  // Debug logs removidos para produção
 
   // Função para buscar dados do backend Flask
   const fetchVagasFromAPI = async () => {
     try {
-      console.log('Fazendo fetch para:', `${API_BASE}/api/spots`)
       const response = await fetch(`${API_BASE}/api/spots`)
-      console.log('Response status:', response.status)
       
       if (response.ok) {
         const spots = await response.json()
-        console.log('Spots recebidos:', spots)
         setApiConnected(true)
         setLoading(false)
         
@@ -67,7 +65,6 @@ export default function App() {
           }
         })
         
-        console.log('Vagas processadas:', vagasData)
         setVagas(vagasData)
         addLog(`Dados carregados do backend: ${spots.length} vagas`)
         
@@ -76,7 +73,6 @@ export default function App() {
         throw new Error(`HTTP ${response.status}`)
       }
     } catch (error) {
-      console.error('Erro ao buscar dados do backend:', error)
       setApiConnected(false)
       setLoading(false)
       addLog(`Erro na API: ${error.message}`)
@@ -113,7 +109,6 @@ export default function App() {
         throw new Error(`HTTP ${response.status}`)
       }
     } catch (error) {
-      console.error('Erro ao alternar vaga:', error)
       addLog(`Erro ao alternar ${vagaName}: ${error.message}`)
       return false
     }
@@ -121,12 +116,10 @@ export default function App() {
 
   useEffect(() => {
     // Primeira busca dos dados do backend
-    console.log('Iniciando busca de dados do backend...')
     fetchVagasFromAPI()
     
     // Atualiza dados do backend a cada 30 segundos
     const apiInterval = setInterval(() => {
-      console.log('Atualizando dados do backend...')
       fetchVagasFromAPI()
     }, 30000)
     
@@ -237,7 +230,6 @@ export default function App() {
         return next
       })
     } catch (error) {
-      console.error('Erro ao processar mensagem MQTT:', error)
       addLog(`Erro MQTT: ${error.message}`)
     }
   }
@@ -262,70 +254,175 @@ export default function App() {
         return ns
       })
     } catch (e) {
-      console.error('Erro ao atualizar histórico:', e)
+      // Silenciar erro de histórico
     }
   }
 
   const nomes = Object.keys(vagas).sort()
   const total = nomes.length
   const livres = nomes.filter((n) => vagas[n].status === 'free').length
+  const ocupadas = total - livres
+
+  // Calcula taxa média de ocupação
+  const taxaOcupacao = total > 0 ? Math.round((ocupadas / total) * 100) : 0
+
+  // Última atualização de qualquer vaga
+  const lastUpdateTime = nomes.length > 0 
+    ? Math.max(...nomes.map(n => vagas[n].lastUpdate || 0))
+    : Date.now()
+  
+  const formatLastUpdate = (timestamp) => {
+    if (!timestamp) return 'Nunca'
+    const diff = Date.now() - timestamp
+    const seconds = Math.floor(diff / 1000)
+    const minutes = Math.floor(seconds / 60)
+    if (minutes > 60) {
+      const hours = Math.floor(minutes / 60)
+      return `há ${hours}h ${minutes % 60}m`
+    }
+    if (minutes > 0) return `há ${minutes}m`
+    return `há ${seconds}s`
+  }
 
   return (
     <div className="app-root">
       <header className="app-header">
-        <h1>Smart Parking - Dashboard</h1>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <ContadorVagas livres={livres} total={total} />
-          <div style={{fontSize:12,color: connected ? '#198754' : '#dc3545' }}>
-            MQTT: {connected ? 'conectado' : 'desconectado'}
+        <div className="header-content">
+          <div className="logo-section">
+            <img src="/SmartParkingLogo1.png" alt="Smart Parking" className="logo" />
+            <h1 className="app-title">Smart Parking</h1>
           </div>
-          <div style={{fontSize:12,color: apiConnected ? '#198754' : '#dc3545' }}>
-            API: {apiConnected ? 'conectada' : 'desconectada'}
-          </div>
+          <SystemStatus mqttConnected={connected} apiConnected={apiConnected} />
         </div>
       </header>
 
-      <main>
-        <section className="garage">
-          <div className="grid">
-            {loading && <p className="placeholder">🔄 Carregando dados do backend API...</p>}
-            {!loading && nomes.length === 0 && <p className="placeholder">❌ Nenhuma vaga encontrada. Verifique se o backend está rodando em {API_BASE}</p>}
-            {nomes.map((nome) => (
-              <div key={nome} style={{display:'flex',flexDirection:'column',alignItems:'stretch',gap:6}}>
-                <VagaCard 
-                  nome={nome} 
-                  data={vagas[nome]} 
-                  onToggle={() => toggleVagaAPI(nome)}
-                />
-                <div style={{marginTop:4}}>
-                  <StatusTimer 
-                    lastUpdate={vagas[nome]?.statusChangeTime} 
-                    status={vagas[nome]?.status} 
-                  />
-                </div>
+      <main className="main-content">
+        {loading && (
+          <div className="loading-container" role="status" aria-live="polite">
+            <div className="loading-spinner" aria-hidden="true"></div>
+            <p>Carregando dados do sistema...</p>
+          </div>
+        )}
+
+        {!loading && (
+          <>
+            {/* Gauge e KPI Cards */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '20px',
+              marginBottom: '32px'
+            }}>
+              <div style={{gridColumn: 'span 1'}}>
+                <FreeSpotGauge livres={livres} total={total} />
               </div>
-            ))}
-          </div>
+              
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '16px',
+                gridColumn: 'span 1'
+              }}>
+                <KPICard
+                  title="Total de Vagas"
+                  value={total}
+                  icon={Car}
+                  color="#1E88E5"
+                />
+                <KPICard
+                  title="Taxa de Ocupação"
+                  value={`${taxaOcupacao}%`}
+                  subtitle={`${ocupadas} ocupadas`}
+                  icon={Percent}
+                  color="#6FFFA3"
+                />
+                <KPICard
+                  title="Última Atualização"
+                  value={formatLastUpdate(lastUpdateTime)}
+                  icon={Clock}
+                  color="#94a3b8"
+                />
+                <KPICard
+                  title="Status do Sistema"
+                  value={connected && apiConnected ? 'Online' : 'Offline'}
+                  subtitle={connected ? 'MQTT Conectado' : 'MQTT Desconectado'}
+                  icon={Activity}
+                  color={connected && apiConnected ? '#6FFFA3' : '#ef4444'}
+                />
+              </div>
+            </div>
 
-          {/* gráfico total de vagas livres */}
-          <div style={{marginTop:18}}>
-            <h3 style={{margin:'6px 0'}}>Vagas livres ao longo do tempo</h3>
-            <TotalFreeChart data={totalSeries.slice(-360)} />
-          </div>
-        </section>
+            <DashboardStats vagas={vagas} />
 
-        <aside className="log">
-          <h3>Log de eventos</h3>
-          <ul>
-            {log.map((item, i) => (
-              <li key={i}><strong>{item.time}</strong>: {item.text}</li>
-            ))}
-          </ul>
-        </aside>
+            <section className="parking-section">
+              <div className="section-header">
+                <h2 className="section-title">
+                  <Car className="section-icon" size={24} strokeWidth={2.5} />
+                  Vagas de Estacionamento
+                </h2>
+              </div>
+              
+              {nomes.length === 0 ? (
+                <div className="placeholder-container" role="alert">
+                  <p>Nenhuma vaga encontrada. Verifique se o backend está rodando.</p>
+                  <p style={{marginTop:8, fontSize:'0.875rem', color:'var(--text-tertiary)'}}>
+                    API: {API_BASE}
+                  </p>
+                </div>
+              ) : (
+                <div className="vagas-grid">
+                  {nomes.map((nome) => (
+                    <VagaCard 
+                      key={nome}
+                      nome={nome} 
+                      data={vagas[nome]} 
+                      onToggle={() => toggleVagaAPI(nome)}
+                      sparklineData={historyRef.current[nome] || []}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="chart-section">
+              <div className="chart-header">
+                <h3 className="chart-title">
+                  <TrendingUp size={20} strokeWidth={2.5} style={{display:'inline-block', marginRight:8, verticalAlign:'middle'}} />
+                  Vagas Livres ao Longo do Tempo
+                </h3>
+              </div>
+              <div className="chart-container">
+                <TotalFreeChart data={totalSeries.slice(-360)} />
+              </div>
+            </section>
+
+            {/* Heatmap de Ocupação */}
+            <section className="chart-section" style={{marginTop: '32px'}}>
+              <OccupancyHeatmap historyRef={historyRef} />
+            </section>
+
+            <section className="log-section">
+              <h3 className="log-title">
+                <ClipboardList size={20} strokeWidth={2.5} style={{display:'inline-block', marginRight:8, verticalAlign:'middle'}} />
+                Log de Eventos
+              </h3>
+              <ul className="log-list" role="log" aria-live="polite" aria-atomic="false">
+                {log.map((item, i) => (
+                  <li key={i} className="log-item">
+                    <span className="log-time">{item.time}</span>: {item.text}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </>
+        )}
       </main>
 
       <footer className="app-footer">
-        <small>Backend API: {API_BASE} | MQTT Broker: {BROKER}</small>
+        <p>Smart Parking Dashboard © 2025</p>
+        <p style={{marginTop:4, fontSize:'0.75rem'}}>
+          Backend: {API_BASE} | MQTT: {BROKER}
+        </p>
       </footer>
     </div>
   )
