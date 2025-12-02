@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react'
 
-export default function StatusTimer({ lastUpdate, status }) {
+export default function StatusTimer({ statusChangeTime, status }) {
   const [timeElapsed, setTimeElapsed] = useState('')
 
   useEffect(() => {
-    if (!lastUpdate) return
+    if (!statusChangeTime) return
 
     const updateTimer = () => {
       const now = Date.now()
-      const diff = now - lastUpdate
+      const diff = Math.abs(now - statusChangeTime) // Usa valor absoluto para evitar negativos
       
       const seconds = Math.floor(diff / 1000)
       const minutes = Math.floor(seconds / 60)
@@ -20,10 +20,8 @@ export default function StatusTimer({ lastUpdate, status }) {
         timeString = `${days}d ${hours % 24}h`
       } else if (hours > 0) {
         timeString = `${hours}h ${minutes % 60}m`
-      } else if (minutes > 0) {
-        timeString = `${minutes}m ${seconds % 60}s`
       } else {
-        timeString = `${seconds}s`
+        timeString = `${minutes}m`
       }
 
       setTimeElapsed(timeString)
@@ -36,9 +34,9 @@ export default function StatusTimer({ lastUpdate, status }) {
     const interval = setInterval(updateTimer, 1000)
     
     return () => clearInterval(interval)
-  }, [lastUpdate])
+  }, [statusChangeTime, status])
 
-  if (!lastUpdate || !status) {
+  if (!statusChangeTime || !status) {
     return (
       <div style={{
         fontSize: 11,
