@@ -57,7 +57,7 @@ export default function ClientVagaCard({ nome, data = {}, onOcupar }) {
           className="ocupar-button"
           onClick={onOcupar}
         >
-          Ocupar Esta Vaga
+          Reservar Esta Vaga
         </button>
       </div>
     </div>
