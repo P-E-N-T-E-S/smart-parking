@@ -124,14 +124,14 @@ graph TB
   ```
 
 #### 🔹 Flask Backend (Python)
-- **Localização**: `raspberry-pi/backend/app.py`
+- **Localização**: `dashboard/backend/app.py`
 - **API REST**: 4 endpoints para gestão de vagas
 - **Banco de Dados**: SQLite com migrações automáticas
 - **Serviços**: MQTT Subscriber, Email Service, Simulator
 - **Dependências**: Flask, paho-mqtt, SQLite3
 
 #### 🔹 React Frontend (JavaScript)
-- **Localização**: `raspberry-pi/frontend/`
+- **Localização**: `dashboard/frontend/`
 - **Build Tool**: Vite para desenvolvimento rápido
 - **Visualização**: ApexCharts para gráficos avançados
 - **Estado**: Gerenciamento dual (MQTT + API polling)
@@ -217,7 +217,7 @@ cd smart-parking
 
 ```bash
 # Navegar para diretório do backend
-cd raspberry-pi/backend
+cd dashboard/backend
 
 # Criar ambiente virtual
 python -m venv venv
@@ -298,7 +298,7 @@ docker run -d --name mailhog -p 1025:1025 -p 8025:8025 mailhog/mailhog
 
 2. **Iniciar Backend**:
    ```bash
-   cd raspberry-pi/backend
+   cd dashboard/backend
    source venv/bin/activate
    python app.py
    ```
@@ -359,7 +359,7 @@ smart-parking/
 │   ├── platformio.ini         # Configuração PlatformIO
 │   └── README.md              # Documentação específica do firmware
 │
-├── raspberry-pi/
+├── dashboard/
 │   ├── backend/               # Flask API
 │   │   ├── app.py            # Aplicação Flask principal
 │   │   ├── mqtt_client.py    # Cliente MQTT assíncrono
