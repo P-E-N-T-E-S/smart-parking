@@ -243,7 +243,7 @@ python app.py
 
 ```bash
 # Navegar para diretório do frontend
-cd ../frontend
+cd dashboard/frontend
 
 # Instalar dependências
 npm install
