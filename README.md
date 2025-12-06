@@ -462,6 +462,15 @@ make test-all
 make start-all
 ```
 
+
+## 📖 Apresentação (Pitch Deck)
+
+Para entender a **visão, o problema e a solução** do projeto em detalhes, confira os slides do nosso pitch:
+
+**[Acesse os Slides Aqui](https://www.canva.com/design/DAG6dKz116Q/OVDjpJOEK3ug18rp1E3CsQ/edit?utm_content=DAG6dKz116Q&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)** 
+
+---
+
 ## 👥 Nossa Equipe
 
 <div align="center">
