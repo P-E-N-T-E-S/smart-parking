@@ -175,6 +175,29 @@ ESP32 5V        → Sensor IR VCC
 Sensor IR GND   → ESP32 GND
 ```
 
+### Montagem do Protótipo (TCRT-5000)
+
+![Montagem ESP32 + TCRT-5000](img/esp32-tcrt5000-wiring.png)
+
+Devido às limitações dos softwares de prototipação voltados a microcontroladores, tornou-se necessário elaborar uma representação gráfica editada para inserir o sensor óptico reflexivo utilizado no projeto. A implementação do protótipo requer os seguintes componentes: uma placa ESP32, um sensor óptico reflexivo TCRT-5000, um LED RGB de ânodo comum, dois resistores de 1 kΩ e uma ou duas protoboards compatíveis com a dimensão da placa ESP32.
+
+Para a montagem do circuito, inicialmente deve-se acoplar a placa ESP32 à protoboard. Em seguida, conectam-se os resistores às portas digitais 26 e 27 da placa. O terminal correspondente ao canal vermelho do LED RGB deve ser ligado ao resistor conectado à porta 27, enquanto o terminal associado ao canal verde deve ser ligado ao resistor conectado à porta 26. O terminal de ânodo comum do LED deve ser conectado ao pino GND da placa.
+
+O sensor óptico reflexivo TCRT-5000 deve ser integrado ao circuito conforme o seguinte mapeamento: o terminal A0 deve ser conectado à porta 14 da ESP32, o terminal D0 à porta 34, o pino VCC ao pino de 5 V e o pino GND ao terminal GND. Recomenda-se, adicionalmente, conectar o pino GND da placa à linha negativa da protoboard, a fim de facilitar a organização das conexões do LED e do sensor.
+
+#### Versão resumida (README)
+- Componentes: `ESP32`, `TCRT-5000`, `LED RGB (ânodo comum)`, `2x resistores 1 kΩ`, `protoboard(s)`
+- LED RGB:
+   - `Vermelho` → `GPIO 27` via resistor 1 kΩ
+   - `Verde` → `GPIO 26` via resistor 1 kΩ
+   - `Ânodo comum` → `GND`
+- TCRT-5000:
+   - `A0` → `GPIO 14`
+   - `D0` → `GPIO 34`
+   - `VCC` → `5V`
+   - `GND` → `GND` (ligar também à barra negativa da protoboard)
+- Dicas: Fixar ESP32 na protoboard, organizar GND na barra negativa, conferir polaridade do LED.
+
 ### Pinagem Detalhada
 
 | Pino ESP32 | Função | Componente | Notas |
