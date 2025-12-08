@@ -16,12 +16,12 @@
 
 ## 🚀 Visão Geral
 
-O **Smart Parking System** é uma solução completa para monitoramento inteligente de estacionamentos. Utilizando sensores infravermelhos, microcontroladores ESP32 com FreeRTOS e comunicação MQTT, o sistema fornece informações em tempo real sobre a disponibilidade de vagas através de um dashboard web moderno e responsivo.
+O **Smart Parking System** é uma solução completa para monitoramento inteligente de estacionamentos. Utilizando sensores infravermelhos, duas ESP32 com FreeRTOS e comunicação MQTT, o sistema fornece informações em tempo real sobre a disponibilidade de vagas através de um dashboard web moderno e responsivo.
 
 ### Principais Características
 
 - **Monitoramento em Tempo Real**: Detecção instantânea de ocupação usando sensores IR
-- **Arquitetura Distribuída**: ESP32 (firmware) + Flask (backend) + React (frontend)
+- **Arquitetura Distribuída**: 2x ESP32 (firmware) + Flask (backend) + React (frontend)
 - **Comunicação Eficiente**: Protocolo MQTT com broker HiveMQ público
 - **Persistência de Dados**: SQLite com histórico completo de ocupação
 - **Visualizações Avançadas**: Gráficos, heatmaps e gauges com ApexCharts
@@ -68,7 +68,7 @@ O **Smart Parking System** é uma solução completa para monitoramento intelige
 ```mermaid
 graph TB
     subgraph "Hardware Layer"
-        ESP32[ESP32 com Sensor IR]
+        ESP32[2x ESP32 com Sensores IR]
     end
     
     subgraph "Communication Layer"
@@ -155,8 +155,8 @@ O dashboard apresenta:
 
 | Componente | Quantidade | Especificações |
 |------------|------------|----------------|
-| **ESP32 DevKit** | 1x | Dual-core 240MHz, WiFi, 34 GPIOs |
-| **Sensor IR Analógico** | 1x | Saída 0-3.3V, alcance ajustável |
+| **ESP32 DevKit** | 2x | Dual-core 240MHz, WiFi, 34 GPIOs |
+| **Sensor IR Analógico** | 2x | Saída 0-3.3V, alcance ajustável |
 | **LED RGB** | 1x | Catodo comum, brilho alto |
 | **Resistores 220Ω** | 3x | Para limitar corrente dos LEDs |
 | **Protoboard** | 1x | 830 pontos, qualidade média |
@@ -187,6 +187,8 @@ Sensor IR GND   → ESP32 GND
 | GND | Terra | Todos componentes | Ponto comum de terra |
 
 ### Lógica de Funcionamento do Hardware
+
+Cada uma das **duas ESP32** opera da seguinte forma:
 
 1. **Sensor IR**: Emite infravermelho e mede reflexão
 2. **Leitura Analógica**: Valores de 0-4095 (12-bit ADC)
