@@ -109,7 +109,7 @@ graph TB
 ### Componentes Técnicos
 
 #### 🔹 ESP32 Firmware (C++/FreeRTOS)
-- **Localização**: `esp32-esp8266/src/main.cpp`
+- **Localização**: `esp32/src/main.cpp`
 - **Tarefas**: Duas tasks concorrentes em cores diferentes
 - **Comunicação**: WiFi + MQTT com reconexão automática
 - **Sincronização**: NTP para timestamp preciso
@@ -260,7 +260,7 @@ npm run dev
 
 ```bash
 # Navegar para diretório do firmware
-cd ../../esp32-esp8266
+cd ../../esp32
 
 # Abrir no VSCode com PlatformIO
 # Ou usar CLI:
@@ -350,7 +350,7 @@ docker run -d --name mailhog -p 1025:1025 -p 8025:8025 mailhog/mailhog
 
 ```
 smart-parking/
-├── esp32-esp8266/              # Firmware ESP32
+├── esp32/                      # Firmware ESP32
 │   ├── src/
 │   │   ├── main.cpp           # Código principal FreeRTOS
 │   │   └── config.h           # Configurações (WiFi, MQTT, thresholds)
