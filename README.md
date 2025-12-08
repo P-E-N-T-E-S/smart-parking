@@ -473,6 +473,14 @@ Para entender a **visão, o problema e a solução** do projeto em detalhes, con
 
 ---
 
+## 📄 Relatório Técnico
+
+Para uma visão completa da documentação técnica, arquitetura detalhada e análise do sistema, acesse nosso relatório:
+
+**[📥 Baixar Relatório (PDF)](relatorio/Smart-Parking.pdf)**
+
+---
+
 ## 👥 Nossa Equipe
 
 <div align="center">
